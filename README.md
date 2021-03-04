@@ -1,6 +1,6 @@
 # Group13-Code
 
-Just don't delete anything. Make sure you only upload revisions that have been tested to WORK. If your code need to be uploaded for testing make a new file and do not upload to the main. 
+Just don't delete anything. Make sure you only upload revisions that have been tested to WORK. If your code need to be uploaded for testing make a new branch and do not upload to the main. 
 
 The Computer Vision (Nonintegrated) code detetcts which quadrant the marker is in then prints it.
 
