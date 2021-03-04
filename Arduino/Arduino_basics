@@ -11,8 +11,8 @@ Arduino:
 	Pin structure:
 	
 		Encoder:
-			Pin 2:	Encoder 1 ISR
-			Pin 3:	Encoder 2 ISR
+			Pin 2:	Encoder 1 XOR ISR
+			Pin 3:	Encoder 2 XOR ISR
 			
 			Pin 5:	Encoder 1B
 			Pin 6:	Encoder 1A
