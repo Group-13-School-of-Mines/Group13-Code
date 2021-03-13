@@ -1,0 +1,97 @@
+%% Mini Project Documentation
+%% Transfer Function Tuning
+%% Simulink Diagram
+%
+open_system('transferfn_tuning');
+%
+
+%% Implementation
+out = sim('transferfn_tuning');
+
+% Data from Arduino
+experimentalTime = linspace(1, 2500, 237) ./ 1000;
+experimentalVelocity = zeros(1, 100);
+experimentalVelocity = [experimentalVelocity, 0.62, 1.81, 2.00, 2.79, 3.11, 3.87, 3.67, 4.66, 4.79, 5.15, 5.46, 5.02, 5.78, 5.94, 6.02, 5.75, 6.17, 6.52, 6.37, 6.01, 6.78, 6.74, 6.58, 6.94, 6.72, 6.75, 6.96, 6.94, 6.17, 7.12, 6.95, 6.91, 6.32, 7.12, 6.93, 6.91, 6.36, 7.12, 6.94, 7.11, 6.93, 7.15, 7.12, 6.96, 7.14, 6.39, 6.95, 7.11, 7.15, 7.51, 7.89, 7.72, 7.89, 7.89, 7.89, 7.89, 7.89, 7.89, 7.70, 7.90, 7.89, 7.89, 7.89, 7.71, 7.89, 7.89, 7.70, 7.89, 7.90, 7.89, 7.89, 7.70, 7.89, 7.89, 7.71, 8.09, 7.70, 7.89, 7.89, 7.71, 7.89, 7.89, 7.89, 7.89, 7.70, 7.89, 7.89, 7.70, 7.89, 7.89, 7.89, 7.89, 7.89, 7.89, 7.90, 7.70, 7.89, 8.09, 7.70, 8.09, 7.70, 7.90, 7.89, 7.89, 7.89, 7.71, 7.89, 7.89, 7.90, 7.89, 8.09, 7.71, 8.09, 7.89, 7.89, 7.89, 7.89, 7.90, 7.89, 7.89, 7.89, 7.89, 7.89, 7.89, 7.89, 7.89, 7.89, 7.70, 7.89, 7.89, 7.89, 7.89, 7.90, 7.89, 7.89, 7.89, 7.89];
+
+% Plot transfer function vs experimental data
+figure(1);
+plot(out.velocity)
+hold on
+plot(experimentalTime, experimentalVelocity)
+title('Velocity');
+xlim([0 4]);
+xlabel('Time (seconds)');
+ylabel('Velocity (rad/s)');
+hold off
+
+%% Transfer Function
+% The resulting sigma value is 8.15. The resulting transfer function is 61.5254/(s+8.15).
+
+%% Simulink Diagram
+%
+open_system('miniProject_PIDtuning');
+%
+
+%% Implementation
+
+% Data from serial monitor in Arduino
+hardwareTime = linspace(0,10,500);
+hardwarePosition = zeros(1,50);
+hardwarePosition = [hardwarePosition, .01,.01,.01,.01 .04,.04,.04,.1,.1,.1, .10,.17,.17,.17,.17,.26,.26,.26,.26,.35,.35,.35,.35,.44,.44,.44,.44,.52,.52,.52,.52,.60,.60,.60,.60,.68,.68,.68,.68,.75,.75,.75,.75,.80,.80,.80,.80,.85,.85,.85,.85,.89,.89,.89,.89,.89,.93,.93,.93,.93,.95,.95,.95,.95,.95,.96,.96,.96,.96,.96,.97,.97,.97,.98,.98,.98,.98,.98,.98,.98,.98,.99,.99,.99,.99,.99,.99,.99,.99,1.0,1.0];
+
+% Sizing and formatting
+for i=140:500
+    hardwarePosition(i) = 1.00;
+end
+hardwareVoltageValue = zeros(1,50);
+hardwareVoltageValue = [hardwareVoltageValue, 32,58,58,57,57,56,56,55,55,54,53,52,51,50,49,48,46,45,44,43,42,41,40,38,36,34,33,32,31,30,29,28,27,26,25,24,23,22,21,20,19,18,18,17,17,16,16,15,15,14,14,13,13,12,12,11,11,10,10,9,9,9,8,8,8,7,7,6,6,6,6,6,5,5,5,5,4,4,4,4,3,3,3,3,2,2,2,2,2,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1];
+
+for j=175:500
+    hardwareVoltageValue(j) = 0;
+end
+
+% Simulink diagram
+out = sim('miniProject_PIDtuning');
+
+%% Desired Position
+% The following graph depicts the motor's position that is desired. The PI
+% controller uses the graph's data to find the required for the motor's
+% supply. We want the desired and actual positions to be close. 
+
+figure(2);
+plot(out.desiredPosition);
+title('Desired Position');
+ylabel('Desired Position');
+
+%% Actual Position
+% The following graph depicts the motor's position that is desired. The PI
+% controller uses the graph's data to find the required for the motor's
+% supply. We want the desired and actual positions to be close.
+
+figure(3);
+plot(out.actualPosition);
+hold on
+plot(hardwareTime, hardwarePosition);
+title('Actual Position');
+ylabel('Actual Position (radians)');
+xlabel('Time (seconds)');
+hold off
+
+%% Voltage for Motor
+% The following graph demonstrates the voltage found by the PI controller 
+% that is applied to the motor. The changes in voltage keep the desired 
+% and actual positions close.
+
+figure(4);
+plot((out.voltage)*1100);
+hold on
+plot(hardwareTime, (hardwareVoltageValue.*4));
+title('Voltage To Motor');
+ylabel('PWM Value');
+xlabel('Time (seconds)');
+hold off
+
+%% PI Values
+% Kp = 0.441511282562372 
+%
+% Ki = 0.029762231576385
