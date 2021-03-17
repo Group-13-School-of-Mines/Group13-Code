@@ -1,12 +1,13 @@
 #include "DualMC33926MotorShield.h"
 #include <Wire.h>
-#define TICKS_PER_ROT     3200  //50*64
-#define FAIRRER           85    //Fair encoder error
-#define DUTY_CYCLE        127
+#include <math.h>
+#define TICKS_PER_ROTATION  3200  //50*64
+#define FAIRRER             85    //Fair encoder error
+#define DUTY_CYCLE          127
 //@ no wheel/torque resistance FAIRRER should be a fairly high number, close to 85 for 127 Duty Cycle
 //@ high wheel/torque resistance FAIRRER should be close to 0
-#define WHEEL_RADIUS      0.05  //meters
-#define ROBOT_WIDTH       0.1   //meters
+#define WHEEL_RADIUS        0.14605  //meters
+#define ROBOT_WIDTH         0.29845   //meters
 
 DualMC33926MotorShield md;
 
@@ -48,7 +49,8 @@ double phi = 0;
 void stopIfFault() {
   if (md.getFault()) {
     Serial.println("Motor Controller fault");
-    while(md.getFault()) sleep(1000);
+    while(true);
+    //while(md.getFault()) sleep(1000);
     }}
 
 void setup() {
@@ -87,40 +89,49 @@ void setup() {
 }
 
 void loop() {
-  
-  move(0.3048); //1 foot (0.3048 meters)
-  rotate(-90); //90 degrees left
-  move(0.3048); //1 foot (0.3048 meters)
-  //motorspin(desiredRotation1);
-
+  Serial.println("starting");
+  movebot(0.3048); //1 foot (0.3048 meters)
+  Serial.println("moved");
+  rotatebot(-90); //90 degrees left
+  Serial.println("rotated");
+  movebot(0.3048); //1 foot (0.3048 meters)
+  Serial.println("moved");
+  while(1);
 }
 
-void move(float distance) {
+void movebot(float distance) {
   if(distance == 0) return;
-  startX = x;
-  startY = y;
+  Serial.println("distance: ");
+  Serial.println(distance);
+  double startX = x;
+  double startY = y;
   
   //forward
   if(distance > 0) {
-    digitalWrite(MOTORDIR[0], true);
-    digitalWrite(MOTORDIR[1], false);
-    analogWrite(MOTORPWM[0], DUTY_CYCLE);
-    analogWrite(MOTORPWM[1], DUTY_CYCLE);
-  }
- if(distance < 0) {
     digitalWrite(MOTORDIR[0], false);
     digitalWrite(MOTORDIR[1], true);
     analogWrite(MOTORPWM[0], DUTY_CYCLE);
     analogWrite(MOTORPWM[1], DUTY_CYCLE);
   }
-  
-  while(distance > sqrt((startX - x)^2 + (startY - y)^2)) {
-    Serial.println(sqrt((startX - x)^2 + (startY - y)^2));
+ if(distance < 0) {
+    digitalWrite(MOTORDIR[0], true);
+    digitalWrite(MOTORDIR[1], false);
+    analogWrite(MOTORPWM[0], DUTY_CYCLE);
+    analogWrite(MOTORPWM[1], DUTY_CYCLE);
   }
+  
+  while(distance > sqrt(pow(startX - x, 2) + pow(startY - y, 2))) {
+    Serial.println(sqrt(pow(startX - x, 2) + pow(startY - y, 2)));
+  }
+
+  //stop motors after movement
+  analogWrite(MOTORPWM[0], false);
+  analogWrite(MOTORPWM[1], false);
+  
 }
 
-void rotate(float degrees) {
-  startPhi = phi;
+void rotatebot(float degrees) {
+  double startPhi = phi;
   
   //rotate left
   if (degrees < 0) {
@@ -130,7 +141,7 @@ void rotate(float degrees) {
     analogWrite(MOTORPWM[1], DUTY_CYCLE);
     while(phi + startPhi > degrees) {
       sendData = int(rotation1/16);
-      Serial.println(sendData);
+      //Serial.println(sendData);
     }
   }
   
@@ -142,7 +153,7 @@ void rotate(float degrees) {
     analogWrite(MOTORPWM[1], DUTY_CYCLE);
     while(phi + startPhi > degrees) {
       sendData = int(rotation1/16);
-      Serial.println(sendData);
+      //Serial.println(sendData);
     }
   }
   //stop motors
@@ -176,60 +187,70 @@ void turn() {
     (encoder1last == 3 && encoder1current == 2) ||
     (encoder1last == 2 && encoder1current == 0) ||
     (encoder1last == 0 && encoder1current == 1)) {
-      updateLocRot(0, 1);
-      
+      updateLocRot(0, -1);
       }
   else if (
     (encoder1last == 3 && encoder1current == 1) || 
     (encoder1last == 1 && encoder1current == 0) ||
     (encoder1last == 0 && encoder1current == 2) ||
     (encoder1last == 2 && encoder1current == 3)) {
-      updateLocRot(0, -1);
+      updateLocRot(0, 1);
       }
 
   //wheel 2
   encoder2last = encoder2current;
   encoder2current = digitalRead(ENCODER[2])*2 + digitalRead(ENCODER[3]);
+  
   if (
-    (encoder1last == 1 && encoder1current == 3) || 
-    (encoder1last == 3 && encoder1current == 2) ||
-    (encoder1last == 2 && encoder1current == 0) ||
-    (encoder1last == 0 && encoder1current == 1)) {
-      updateLocRot(1, -1);
+    (encoder2last == 1 && encoder2current == 3) || 
+    (encoder2last == 3 && encoder2current == 2) ||
+    (encoder2last == 2 && encoder2current == 0) ||
+    (encoder2last == 0 && encoder2current == 1)) {
+      updateLocRot(1, 1);
       }
   else if (
-    (encoder1last == 3 && encoder1current == 1) || 
-    (encoder1last == 1 && encoder1current == 0) ||
-    (encoder1last == 0 && encoder1current == 2) ||
-    (encoder1last == 2 && encoder1current == 3)) {
-      updateLocRot(1, 1);
+    (encoder2last == 3 && encoder2current == 1) || 
+    (encoder2last == 1 && encoder2current == 0) ||
+    (encoder2last == 0 && encoder2current == 2) ||
+    (encoder2last == 2 && encoder2current == 3)) {
+      updateLocRot(1, -1);
       }
 }
 
-updateLocRot(bool wheel, int dir) {
+void updateLocRot(bool wheel, int dir) {
   //Left
   if(!wheel) {
     rotation1 += dir;
     lastTime1 = currentTime1;
-    currentTime1 = millis();
+    currentTime1 = micros();
     deltaT1 = currentTime1 - lastTime1;
-    v1 = WHEEL_RADIUS*dir*(2*PI/TICKS_PER_ROTATION) / ((float)deltaT1/1000);
+    v1 = WHEEL_RADIUS*dir*(2*PI/TICKS_PER_ROTATION) / ((float)deltaT1/1000000);
     x = x + cos(phi)*(v1*deltaT1)/2;
     y = y + sin(phi)*(v1*deltaT1)/2;
     phi = phi + (WHEEL_RADIUS/ROBOT_WIDTH)*(v1*deltaT1);
   }
   
   //Right
-  else(!wheel) {
+  else {
     rotation2 += dir;
     lastTime2 = currentTime2;
-    currentTime2 = millis();
+    currentTime2 = micros();
     deltaT2 = currentTime2 - lastTime2;
-    v2 = WHEEL_RADIUS*dir*(2*PI/TICKS_PER_ROTATION) / ((float)deltaT2/1000);
-    x = x + cos(phi)*(v2*deltaT2)/2;
-    y = y + sin(phi)*(v2*deltaT2)/2;
-    phi = phi - (WHEEL_RADIUS/ROBOT_WIDTH)*(v2*deltaT2);
+    v2 = WHEEL_RADIUS*dir*(2*PI/TICKS_PER_ROTATION) / ((float)deltaT2/1000000);
+    x = x + cos(phi)*(-v2*deltaT2)/2;
+    y = y + sin(phi)*(-v2*deltaT2)/2;
+    phi = phi - (WHEEL_RADIUS/ROBOT_WIDTH)*(-v2*deltaT2);
   }
+  Serial.print(v1);
+  Serial.print("\t");
+  Serial.print(v2);
+  Serial.print("\t");
+  Serial.print(x);
+  Serial.print("\t");
+  Serial.print(y);
+  Serial.print("\t");
+  Serial.print(phi);
+  Serial.print("\n"); 
 }
 
 void motorspin(int desiredRotation) {
