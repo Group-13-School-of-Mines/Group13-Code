@@ -1,14 +1,16 @@
-#include "DualMC33926MotorShield.h"
+git#include "DualMC33926MotorShield.h"
 #include <Wire.h>
 #include <math.h>
 #define TICKS_PER_ROTATION  3200  //50*64
-#define FAIRRER             85    //Fair encoder error
+#define FAIRRER             0.05    //Fair encoder error
 #define DUTY_CYCLE          127
 //@ no wheel/torque resistance FAIRRER should be a fairly high number, close to 85 for 127 Duty Cycle
 //@ high wheel/torque resistance FAIRRER should be close to 0
-#define WHEEL_RADIUS        0.14605  //meters
-#define ROBOT_WIDTH         0.29845   //meters
-
+#define WHEEL_RADIUS        .13  //meters
+#define ROBOT_WIDTH         .029845/2   //centimeters
+//.242782
+//.246
+//.14605
 DualMC33926MotorShield md;
 
 //Pin assignments
@@ -36,8 +38,8 @@ int currentTime1 = 0;
 int lastTime2 = 0;
 int currentTime2 = 0;
 
-int deltaT1 = 0;
-int deltaT2 = 0;
+float deltaT1 = 0;
+float deltaT2 = 0;
 
 double v1 = 0;
 double v2 = 0;
@@ -50,7 +52,6 @@ void stopIfFault() {
   if (md.getFault()) {
     Serial.println("Motor Controller fault");
     while(true);
-    //while(md.getFault()) sleep(1000);
     }}
 
 void setup() {
@@ -89,14 +90,12 @@ void setup() {
 }
 
 void loop() {
-  Serial.println("starting");
-  movebot(0.3048); //1 foot (0.3048 meters)
-  Serial.println("moved");
-  rotatebot(-90); //90 degrees left
-  Serial.println("rotated");
-  movebot(0.3048); //1 foot (0.3048 meters)
-  Serial.println("moved");
-  while(1);
+  rotatebot(-90);
+  delay(2000);
+  rotatebot(90);
+  delay(2000);
+  //movebot(0.3048*2); //2 feet 
+  
 }
 
 void movebot(float distance) {
@@ -118,10 +117,21 @@ void movebot(float distance) {
     digitalWrite(MOTORDIR[1], false);
     analogWrite(MOTORPWM[0], DUTY_CYCLE);
     analogWrite(MOTORPWM[1], DUTY_CYCLE);
+    distance = -distance;
   }
-  
-  while(distance > sqrt(pow(startX - x, 2) + pow(startY - y, 2))) {
-    Serial.println(sqrt(pow(startX - x, 2) + pow(startY - y, 2)));
+
+  float traveled = sqrt(pow((startX - x), 2) + pow((startY - y), 2));
+  float remaining = (distance - traveled);
+
+  //speed based on distance
+  while(remaining > FAIRRER) {
+    traveled = sqrt(pow((startX - x), 2) + pow((startY - y), 2));
+    remaining = (distance - traveled);
+    
+    int pwm = int(200*exp(-pow(distance/2 - traveled,2)/(pow(distance/2, 2)*2/3)))+10;
+    analogWrite(MOTORPWM[0], pwm);
+    analogWrite(MOTORPWM[1], pwm);
+    Serial.println(pwm);
   }
 
   //stop motors after movement
@@ -131,29 +141,34 @@ void movebot(float distance) {
 }
 
 void rotatebot(float degrees) {
+  float rads = degrees * 2*PI/360;
+  Serial.println("destination:");
+  Serial.println(rads);
   double startPhi = phi;
   
-  //rotate left
-  if (degrees < 0) {
+  //rotate right
+  if (rads < 0) {
     digitalWrite(MOTORDIR[0], false);
     digitalWrite(MOTORDIR[1], false);
     analogWrite(MOTORPWM[0], DUTY_CYCLE);
     analogWrite(MOTORPWM[1], DUTY_CYCLE);
-    while(phi + startPhi > degrees) {
+    while(phi > rads+startPhi) {
       sendData = int(rotation1/16);
       //Serial.println(sendData);
+      Serial.println(phi);
     }
   }
   
-  //rotate right
-  else if(degrees > 0) {
+  //rotate left
+  else if(rads > 0) {
     digitalWrite(MOTORDIR[0], true);
     digitalWrite(MOTORDIR[1], true);
     analogWrite(MOTORPWM[0], DUTY_CYCLE);
     analogWrite(MOTORPWM[1], DUTY_CYCLE);
-    while(phi + startPhi > degrees) {
+    while(phi < rads + startPhi) {
       sendData = int(rotation1/16);
       //Serial.println(sendData);
+      Serial.println(phi);
     }
   }
   //stop motors
@@ -215,6 +230,16 @@ void turn() {
     (encoder2last == 2 && encoder2current == 3)) {
       updateLocRot(1, -1);
       }
+  //Serial.print(v1);
+  //Serial.print("\t");
+  //Serial.print(v2);
+  //Serial.print("\t");
+  //Serial.print(x);
+  //Serial.print("\t");
+  //Serial.print(y);
+  //Serial.print("\t");
+  //Serial.print(phi);
+  //Serial.print("\n"); 
 }
 
 void updateLocRot(bool wheel, int dir) {
@@ -224,7 +249,8 @@ void updateLocRot(bool wheel, int dir) {
     lastTime1 = currentTime1;
     currentTime1 = micros();
     deltaT1 = currentTime1 - lastTime1;
-    v1 = WHEEL_RADIUS*dir*(2*PI/TICKS_PER_ROTATION) / ((float)deltaT1/1000000);
+    if (deltaT1 == 0) deltaT1 = 0.5;
+    v1 = WHEEL_RADIUS*dir*(2*PI/TICKS_PER_ROTATION) / ((float)deltaT1);
     x = x + cos(phi)*(v1*deltaT1)/2;
     y = y + sin(phi)*(v1*deltaT1)/2;
     phi = phi + (WHEEL_RADIUS/ROBOT_WIDTH)*(v1*deltaT1);
@@ -236,43 +262,13 @@ void updateLocRot(bool wheel, int dir) {
     lastTime2 = currentTime2;
     currentTime2 = micros();
     deltaT2 = currentTime2 - lastTime2;
-    v2 = WHEEL_RADIUS*dir*(2*PI/TICKS_PER_ROTATION) / ((float)deltaT2/1000000);
+    if (deltaT2 == 0) deltaT2 = 0.5;
+    v2 = WHEEL_RADIUS*dir*(2*PI/TICKS_PER_ROTATION) / ((float)deltaT2);
     x = x + cos(phi)*(-v2*deltaT2)/2;
     y = y + sin(phi)*(-v2*deltaT2)/2;
     phi = phi - (WHEEL_RADIUS/ROBOT_WIDTH)*(-v2*deltaT2);
   }
-  Serial.print(v1);
-  Serial.print("\t");
-  Serial.print(v2);
-  Serial.print("\t");
-  Serial.print(x);
-  Serial.print("\t");
-  Serial.print(y);
-  Serial.print("\t");
-  Serial.print(phi);
-  Serial.print("\n"); 
 }
-
-void motorspin(int desiredRotation) {
-  stopIfFault();
-  if(desiredRotation > rotation1) {
-    digitalWrite(MOTORDIR[0], false);
-    analogWrite(MOTORPWM[0], DUTY_CYCLE);
-    while(rotation1 < desiredRotation - FAIRRER) {
-      sendData = int(rotation1 / 16);
-      Serial.println(sendData);
-      stopIfFault();
-    }
-  }
-  else if(desiredRotation < rotation1) {
-    digitalWrite(MOTORDIR[0], true);
-    analogWrite(MOTORPWM[0], DUTY_CYCLE);
-    while(rotation1 > desiredRotation + FAIRRER) {
-      sendData = int(rotation1 / 16);
-      Serial.println(sendData);
-      stopIfFault();
-    }
-  }
   
   //Serial.println("Wheel stopped!");
   analogWrite(MOTORPWM[0], 0);
