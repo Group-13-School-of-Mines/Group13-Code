@@ -31,7 +31,7 @@ int encoder2current = 0;
 void stopIfFault() {
   if (md.getFault()) {
     Serial.println("Motor Controller fault");
-    while(md.getFault()) sleep(1000);
+    while(true);
     }}
 
 void setup() {
