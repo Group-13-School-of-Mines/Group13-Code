@@ -1,12 +1,4 @@
-/*
-* 00  stop
-* 01  move (0 for infinite)
-* 10  rotate
-* 11  circle
-*/
-
 #include "DualMC33926MotorShield.h"
-#include <Wire.h>
 #include <math.h>
 #define TICKS_PER_ROTATION  3200  //50*64
 #define DUTY_CYCLE          127
@@ -31,7 +23,12 @@ int minpwm = 65;
 
 byte receiveData;
 byte sendData;
-bool stopCommand;
+char receiveStr[5] = {' ', ' ', ' ', ' ', '\0'};
+
+bool moveCommand = false;
+bool circleCommand = false;
+bool rotateCommand = false;
+int  arg;
 
 int encoder1last = 0;
 int encoder1current = 0;
@@ -61,14 +58,8 @@ void stopIfFault() {
 }
 
 void setup() {
-    //set up debug console
-    Serial.begin(115200);
-    Serial.println("Debug console:");
-
-    //Join I2C bus as a slave with address 04
-    Wire.begin(0x04);
-    Wire.onReceive(DataReceive);
-    Wire.onRequest(DataRequest);
+    //Set up Serial communication
+    Serial.begin(9600);
 
     //Encoder pins
     pinMode(ENCODER[0], INPUT);
@@ -92,17 +83,98 @@ void setup() {
 }
 
 void loop() {
+    if (moveCommand) movebot(arg);
+    if (rotateCommand) rotatebot(arg);
+    if (circleCommand) circlebot(arg);
 
-    //circlebot(0);
-    //wait before looping    
-    delay(1000);
+}
+
+
+void serialEvent() {
+
+    if (Serial.available() > 0) {
+        byte receiveData = Serial.read();
+        switch (receiveData) {
+            
+            //STOP
+            case '~':
+		Serial.println("STOP");
+		moveCommand = false;
+		rotateCommand = false;
+		circleCommand = false;
+                break;
+
+            //ROTATE
+            case ',':
+		Serial.println("ROTATE");
+                receiveStr[0] = ' ';
+                receiveStr[1] = ' ';
+                receiveStr[2] = ' ';
+                receiveStr[3] = ' ';
+                while (true) {
+                    if (Serial.available() > 0) {
+                        receiveData = Serial.read();
+                        if (receiveData == '!') break;
+                        receiveStr[0] = receiveStr[1];
+                        receiveStr[1] = receiveStr[2];
+                        receiveStr[2] = receiveStr[3];
+                        receiveStr[3] = receiveData;
+                    }
+                }
+                rotateCommand = true;
+                arg = atof(receiveStr);
+                break;
+
+            //MOVE
+            case ':':
+		Serial.println("MOVE");
+                receiveStr[0] = ' ';
+                receiveStr[1] = ' ';
+                receiveStr[2] = ' ';
+                receiveStr[3] = ' ';
+                while (receiveData != '!') {
+                    if (Serial.available() > 0) {
+                        receiveData = Serial.read();
+                        if (receiveData == '!') break;
+                        receiveStr[0] = receiveStr[1];
+                        receiveStr[1] = receiveStr[2];
+                        receiveStr[2] = receiveStr[3];
+                        receiveStr[3] = receiveData;                       
+                    }
+                } 
+                moveCommand = true;
+                arg = atof(receiveStr);
+                break;
+
+            //CIRCLE
+            case ';':
+		Serial.println("CIRCLE");
+                receiveStr[0] = ' ';
+                receiveStr[1] = ' ';
+                receiveStr[2] = ' ';
+                receiveStr[3] = ' ';
+                while (receiveData != '!') {
+                    if (Serial.available() > 0) {
+                        receiveData = Serial.read();
+                        if (receiveData == '!') break;
+                        receiveStr[0] = receiveStr[1];
+                        receiveStr[1] = receiveStr[2];
+                        receiveStr[2] = receiveStr[3];
+                        receiveStr[3] = receiveData;                       
+                    }
+                } 
+                circleCommand = true;
+                arg = atof(receiveStr);
+                break;
+        }
+    }
 }
 
 void movebot(float distance) {
     if(distance == 0) return;
     distance *= 0.3048;
-    Serial.println("distance: ");
-    Serial.println(distance);
+    //Serial.println("distance: ");
+    //Serial.println(distance);
     double startX = x;
     double startY = y;
   
@@ -121,7 +193,8 @@ void movebot(float distance) {
     float traveled = sqrt(pow((startX - x), 2) + pow((startY - y), 2));
     while(traveled < distance) {
         traveled = sqrt(pow((startX - x), 2) + pow((startY - y), 2));
-        if (stopCommand) break; 
+        serialEvent();
+        if (!moveCommand) break; 
         pwm = int((
             pow(tanh(distance), 1) * 
             (255 - minpwm) * 
@@ -130,19 +203,25 @@ void movebot(float distance) {
     
         analogWrite(MOTORPWM[0], pwm);
         analogWrite(MOTORPWM[1], pwm);
-        Serial.println(pwm);
+        Serial.print("");
     }
 
     //stop motors after movement
-    stopCommand = false;
+    moveCommand = false;
     analogWrite(MOTORPWM[0], false);
     analogWrite(MOTORPWM[1], false);
 }
 
 void rotatebot(float degrees) {
+    int maxpwm = 175;
     float rads = degrees * 2*PI/360;
-    Serial.println("destination:");
-    Serial.println(rads);
+    
+    if (degrees == 360) {
+        maxpwm = 80;
+        rads = 3*2*PI*1.05;
+    }
+    //Serial.println("destination:");
+    //Serial.println(rads);
     double startPhi = phi;
   
     //rotate right
@@ -157,26 +236,31 @@ void rotatebot(float degrees) {
         digitalWrite(MOTORDIR[1], true);
     }
     while(abs(phi - startPhi) < rads) {
-        if (stopCommand) break; 
+        serialEvent();
+        if (!rotateCommand) break; 
             pwm = int((
                 pow(tanh(rads), 2) * 
-                (175 - minpwm) * 
+                (maxpwm - minpwm) * 
                 exp(-pow(rads/2 - abs(phi-startPhi),2) / (pow(rads/2, 2)*2/3))) + 
                 minpwm);
             analogWrite(MOTORPWM[0], pwm);
             analogWrite(MOTORPWM[1], pwm);    
-            Serial.println(pwm);
+            Serial.print("");
     }
   
     //stop motors
-    stopCommand = false;
+    rotateCommand = false;
     analogWrite(MOTORPWM[0], 0);
     analogWrite(MOTORPWM[1], 0);
 }
 
 void circlebot(float radius) {
-    if(radius == 0) rotatebot(360);
-//find maximum pwms for each wheel based on radius
+    if(radius == 0) {
+        circleCommand = false;
+        rotateCommand = true;
+        arg = 360;
+    }
+    //find maximum pwms for each wheel based on radius
     float leftRadius = radius*0.3048 - ROBOT_WIDTH*5;
     float rightRadius = radius*0.3048 + ROBOT_WIDTH*5;
     int multiplier = 500/radius;
@@ -193,7 +277,8 @@ void circlebot(float radius) {
     analogWrite(MOTORPWM[1], abs(rightpwm));     
 
     while(abs(phi-startPhi) < 2*PI*1.025) {
-        if (stopCommand) break; 
+        serialEvent();
+        if (!circleCommand) break; 
         if(phi-startPhi < (2*PI*1.025)/24) {
             analogWrite(MOTORPWM[0], 0); 
             analogWrite(MOTORPWM[1], abs(rightpwm)); 
@@ -202,62 +287,13 @@ void circlebot(float radius) {
             analogWrite(MOTORPWM[0], abs(leftpwm)); 
             analogWrite(MOTORPWM[1], abs(rightpwm)); 
         }
-        Serial.println(phi-startPhi);
+        Serial.print("");
     }
    
     //stop motors
-    stopCommand = false;
+    circleCommand = false;
     analogWrite(MOTORPWM[0], 0);
     analogWrite(MOTORPWM[1], 0);
-}
-
-
-void DataReceive(int numBytes) {
-    while(Wire.available()) {
-        receiveData = Wire.read();
-        Serial.print(receiveData, BIN);
-        switch ((receiveData >> 6) & 0x03) {
-            
-            //stop
-            case 0:
-                stopCommand = true;
-                break;
-
-            //move
-            case 1:
-                //for infinite movement pass 0
-                if(receiveData & 0x3F == 0x00) {
-                    digitalWrite(MOTORDIR[0], false);
-                    digitalWrite(MOTORDIR[1], true);
-                    analogWrite(MOTORPWM[0], 100);
-                    analogWrite(MOTORPWM[1], 100);
-                }
-                //any other value returns a finite movement
-                else{
-                    movebot(int(receiveData & 0x3F));
-                    delay(10);
-                }
-                break;
-
-            //rotate
-            case 2:
-                rotatebot(int(receiveData & 0x3F));
-                delay(10);
-                break;
-            
-            //circle
-            case 3:
-                circlebot(int(receiveData & 0x3F));
-                delay(10);
-                break;
-        }
-    }
-}
-
-//send data through i2c
-void DataRequest(int numBytes) {
-    Wire.write(sendData);
-    //Wire.write(0x00);
 }
 
 void turn() {
