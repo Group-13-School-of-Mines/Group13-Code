@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 import os
 import cv2
 from picamera.array import PiRGBArray
@@ -10,6 +9,9 @@ import smbus
 import board
 import busio
 import adafruit_character_lcd.character_lcd_rgb_i2c as character_lcd
+import imutils
+from imutils.video import VideoStream
+
 lcd_columns = 16
 lcd_rows = 2
 i2c = busio.I2C(board.SCL, board.SDA)
@@ -37,23 +39,26 @@ def sendCircle(radius):
 
 # Main function
 def demo2():
+    usingPiCamera = True
+    frameSize = (640, 480)
+    cap = VideoStream(src = 0, usePiCamera = usingPiCamera, resolution = frameSize, framerate = 32).start()
+    time.sleep(1.0)
+
     os.system('stty -F /dev/ttyACM0 raw 9600')
-    cap = cv2.VideoCapture(0)
+    sendCircle(0)
+    angle = 180
 
     while True:
-        sendRotate(15)
-        _, frame = cap.read()
-        if frame.all() == None:
-            raise Exception("Could not load video!")
+        frame = cap.read()
+        #cv2.imshow('Video',frame)
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-       ## cv2.imshow('Video',gray)
-       ## cv2.waitKey(1)
-
-        arucoDict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_5X5_100)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+        arucoDict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_6X6_100)
         arucoParams = cv2.aruco.DetectorParameters_create()
         (corners, ids, rejected) = cv2.aruco.detectMarkers(gray, arucoDict,parameters=arucoParams)
-        
-        if len(corners) > 0: 
+
+        if len(corners) > 0:
             ids = ids.flatten()
             for (markerCorner, markerID) in zip(corners, ids):
                 corners = markerCorner.reshape((4, 2))
@@ -69,18 +74,18 @@ def demo2():
                 a = (8.5*620)/height #Distance formula
                 center = (bottomRight[0]-((bottomRight[0]-bottomLeft[0])/2),bottomLeft[1]-((bottomLeft[1]-topLeft[1])/2))
                 angle =((center[0]-320)/320)*26
-                if angle <=15 and angle >= -15:
+                if angle <=5 and angle >= -5:
                     print("sending stop")
                     sendStop()
+                    break
 
-                distance = a/math.cos(math.radians(abs(angle)))
-                dist = int(distance*.0328)
-                #writeNumber(dist)
-                print("sending move")
-                sendMove(dist)
+    distance = a/math.cos(math.radians(abs(angle)))
+    dist = int(distance*.0328)
+    #writeNumber(dist)
+    print("sending move")
+    sendMove(dist)
 
-                print('Distance from camera: ',distance)
-                #angle = abs((1-(width/height)*90) #Angle formula
-                print('Angle: ',angle)
-
+    print('Distance from camera: ',distance)
+    #angle = abs((1-(width/height)*90) #Angle formula
+    print('Angle: ',angle)
 demo2()

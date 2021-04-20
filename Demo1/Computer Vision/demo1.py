@@ -4,14 +4,22 @@ from picamera.array import PiRGBArray
 from picamera import PiCamera
 import time
 import math
+import imutils
+from imutils.video import VideoStream
+
 def demo1():
-    cap = cv2.VideoCapture(0)
+    usingPiCamera= True
+    frameSize = (640, 480)
+    cap = VideoStream(src=0, usePiCamera=usingPiCamera, resolution=frameSize, framerate=32).start()
+    time.sleep(1.0)
+
     while True:
-        _, frame = cap.read()
+        frame = cap.read()
+        #cv2.imshow('Video',frame)
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        cv2.imshow('Video',gray)
-        cv2.waitKey(1)
-        arucoDict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_5X5_100)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+        arucoDict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_6X6_100)
         arucoParams = cv2.aruco.DetectorParameters_create()
         (corners, ids, rejected) = cv2.aruco.detectMarkers(gray, arucoDict,parameters=arucoParams)
         if len(corners) > 0: 
@@ -27,9 +35,9 @@ def demo1():
                 if height == 0:
                     height = 1
                 width = (topRight[0]-topLeft[0]+bottomRight[0]-bottomLeft[0])/2
-                a = (8.5*620)/height #Distance formula
+                a = (10*620)/height #Distance formula
                 center = (bottomRight[0]-((bottomRight[0]-bottomLeft[0])/2),bottomLeft[1]-((bottomLeft[1]-topLeft[1])/2))
-                angle =((center[0]-320)/320)*26
+                angle =((center[0]-320)/320)*27
                 distance = a/math.cos(math.radians(abs(angle)))
                 print('Distance from camera: ',distance)
                 #angle = abs((1-(width/height)*90) #Angle formula
