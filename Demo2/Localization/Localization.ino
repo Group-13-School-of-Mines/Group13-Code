@@ -171,6 +171,7 @@ void serialEvent() {
 }
 
 void movebot(float distance) {
+    distance /= 2;
     if(distance == 0) return;
     distance *= 0.3048;
     //Serial.println("distance: ");
@@ -217,7 +218,7 @@ void rotatebot(float degrees) {
     float rads = degrees * 2*PI/360;
     
     if (degrees == 360) {
-        maxpwm = 80;
+        maxpwm = 90;
         rads = 3*2*PI*1.05;
     }
     //Serial.println("destination:");
