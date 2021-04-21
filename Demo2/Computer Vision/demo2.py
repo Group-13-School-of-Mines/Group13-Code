@@ -45,16 +45,22 @@ def demo2():
     time.sleep(1.0)
 
     os.system('stty -F /dev/ttyACM0 raw 9600')
-    sendCircle(0)
+    #sendCircle(0)
     angle = 180
+    seeIt = False
+    #send a big rotate so it doesnt get stuck
+    sendRotate(45)
+    time.sleep(0.1)
 
-    while True:
+    while (seeIt == False):
+        sendRotate(5)
+        time.sleep(0.1)
         frame = cap.read()
         #cv2.imshow('Video',frame)
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
-        arucoDict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_6X6_100)
+        arucoDict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_5X5_100)
         arucoParams = cv2.aruco.DetectorParameters_create()
         (corners, ids, rejected) = cv2.aruco.detectMarkers(gray, arucoDict,parameters=arucoParams)
 
@@ -71,20 +77,59 @@ def demo2():
                 if height == 0:
                     height = 1
                 width = (topRight[0]-topLeft[0]+bottomRight[0]-bottomLeft[0])/2
-                a = (8.5*620)/height #Distance formula
+                a = (10*620)/height #Distance formula
                 center = (bottomRight[0]-((bottomRight[0]-bottomLeft[0])/2),bottomLeft[1]-((bottomLeft[1]-topLeft[1])/2))
                 angle =((center[0]-320)/320)*26
-                if angle <=5 and angle >= -5:
+                if angle <=4 and angle >= -4:
                     print("sending stop")
                     sendStop()
-                    break
+                    seeIt = True
 
-    distance = a/math.cos(math.radians(abs(angle)))
-    dist = int(distance*.0328)
-    #writeNumber(dist)
-    print("sending move")
-    sendMove(dist)
+    seeIt = False
+    while (seeIt == False):
+        sendMove(1)
+        time.sleep(0.1)
+        frame = cap.read()
+        #cv2.imshow('Video',frame)
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+        arucoDict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_5X5_100)
+        arucoParams = cv2.aruco.DetectorParameters_create()
+        (corners, ids, rejected) = cv2.aruco.detectMarkers(gray, arucoDict,parameters=arucoParams)
 
+        if len(corners) > 0:
+            ids = ids.flatten()
+            for (markerCorner, markerID) in zip(corners, ids):
+                corners = markerCorner.reshape((4, 2))
+                (topLeft, topRight, bottomRight, bottomLeft) = corners
+                topRight = (int(topRight[0]), int(topRight[1]))
+                bottomRight = (int(bottomRight[0]), int(bottomRight[1]))
+                bottomLeft = (int(bottomLeft[0]), int(bottomLeft[1]))
+                topLeft = (int(topLeft[0]), int(topLeft[1]))
+                height = (bottomLeft[1]-topLeft[1]+bottomRight[1]-topRight[1])/2
+                if height == 0:
+                    height = 1
+                width = (topRight[0]-topLeft[0]+bottomRight[0]-bottomLeft[0])/2
+                a = (10*620)/height #Distance formula
+                center = (bottomRight[0]-((bottomRight[0]-bottomLeft[0])/2),bottomLeft[1]-((bottomLeft[1]-topLeft[1])/2))
+                angle =((center[0]-320)/320)*26
+                distance = abs(a/math.cos(math.radians(abs(angle))))
+                dist = int(distance*.0328)
+                if dist <= 0.75 or len(corners) <= 0:
+                    print("sending stop")
+                    sendStop()
+                    seeIt = True
+                elif len(corners) <= 0:
+                    print("cant see it")
+                    sendMove(1)
+                    time.sleep(0.5)
+                    sendStop()
+                    seeIt = True
+    time.sleep(1)
+    #sendRotate(-90)
+    time.sleep(2)
+    #sendCircle(2)
     print('Distance from camera: ',distance)
     #angle = abs((1-(width/height)*90) #Angle formula
     print('Angle: ',angle)
