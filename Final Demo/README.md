@@ -7,6 +7,10 @@ For the final, the bot will locate an aruco marker as quickly as it can, and the
 open up the communication channel between the pi and the arduino by running:
 `stty -F /dev/ttyACM0 raw 9600 && cat /dev/ttyACM0`
 
+#TODO: 
+Tell everyone how to use my raspberry pi and program the arduino
+
+
 # Program flow:
 - Rotate bot until camera sees aruco
 - measure angle and rotate bot by that amount
