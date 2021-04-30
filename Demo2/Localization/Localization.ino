@@ -102,6 +102,8 @@ void serialEvent() {
 		moveCommand = false;
 		rotateCommand = false;
 		circleCommand = false;
+	        analogWrite(MOTORPWM[0], pwm);
+                analogWrite(MOTORPWM[1], pwm);
                 break;
 
             //ROTATE
@@ -142,8 +144,17 @@ void serialEvent() {
                         receiveStr[3] = receiveData;                       
                     }
                 } 
-                moveCommand = true;
-                arg = atof(receiveStr);
+		if (atof(receiveStr) == 0) {
+		    digitalWrite(MOTORDIR[0], false);
+                    digitalWrite(MOTORDIR[1], true);
+			
+		    analogWrite(MOTORPWM[0], 64);
+                    analogWrite(MOTORPWM[1], 64);
+		}
+		else {
+                    moveCommand = true;
+                    arg = atof(receiveStr);
+		}
                 break;
 
             //CIRCLE
