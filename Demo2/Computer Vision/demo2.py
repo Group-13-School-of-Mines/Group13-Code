@@ -5,10 +5,7 @@ from picamera.array import PiRGBArray
 from picamera import PiCamera
 import math
 import time
-import smbus
-import board
-import busio
-import adafruit_character_lcd.character_lcd_rgb_i2c as character_lcd
+
 import imutils
 from imutils.video import VideoStream
 
@@ -80,10 +77,9 @@ def demo2():
                 a = (10*620)/height #Distance formula
                 center = (bottomRight[0]-((bottomRight[0]-bottomLeft[0])/2),bottomLeft[1]-((bottomLeft[1]-topLeft[1])/2))
                 angle =((center[0]-320)/320)*26
-                if angle <=4 and angle >= -4:
-                    print("sending stop")
-                    sendStop()
-                    seeIt = True
+                sendRotate(angle)
+                sendStop()
+                seeIt = True
 
     seeIt = False
     while (seeIt == False):
